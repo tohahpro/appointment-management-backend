@@ -1,0 +1,23 @@
+enum UserRole {
+    SUPER_ADMIN
+    ADMIN
+    DOCTOR
+    PATIENT
+}
+
+enum Gender {
+    MALE
+    FEMALE
+}
+
+enum UserStatus {
+    ACTIVE
+    INACTIVE
+    SUSPENDED
+    DELETED
+}
+
+enum AuthType {
+    LOCAL
+    GOOGLE
+}

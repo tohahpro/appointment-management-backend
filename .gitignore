@@ -1,0 +1,17 @@
+node_modules
+dist
+.env
+.env.test
+
+dist/
+render.yaml
+
+
+src/app/modules/admin
+src/app/modules/category
+
+/src/generated/prisma
+
+/generated/prisma
+uploads/*
+!uploads/.gitkeep
