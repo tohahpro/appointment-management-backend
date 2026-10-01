@@ -18,6 +18,28 @@ const createAdmin = catchAsync(async (req: Request, res: Response) => {
     })
 });
 
+const createDoctor = catchAsync(async (req: Request, res: Response) => {
+
+    const result = await UserService.createDoctor(req);
+    sendResponse(res, {
+        statusCode: 201,
+        success: true,
+        message: "Doctor Created successfuly!",
+        data: result
+    })
+});
+
+const createPatient = catchAsync(async (req: Request, res: Response) => {
+
+    const result = await UserService.createPatient(req);
+    sendResponse(res, {
+        statusCode: 201,
+        success: true,
+        message: "Patient Created successfuly!",
+        data: result
+    })
+});
+
 
 const getAllUsers = catchAsync(async (req: Request, res: Response) => {
     const filters = pick(req.query, userFilterableFields)
@@ -51,6 +73,8 @@ const changeProfileStatus = catchAsync(async (req: Request, res: Response) => {
 
 export const UserController = {
     createAdmin,
+    createDoctor,
+    createPatient,
     getAllUsers,
     changeProfileStatus
 }

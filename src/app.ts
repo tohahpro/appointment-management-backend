@@ -5,7 +5,6 @@ import notFound from './app/middlewares/notFound';
 import config from './config';
 import cookieParser from 'cookie-parser';
 import router from './app/routes';
-import { PaymentController } from './app/modules/payment/payment.controller';
 
 const app: Application = express();
 
@@ -15,11 +14,6 @@ app.use(cors({
 }));
 
 
-app.post(
-  '/webhook',
-  express.raw({ type: 'application/json' }),
-  PaymentController.handleStripeWebhookEvent
-)
 
 //parser
 app.use(cookieParser());

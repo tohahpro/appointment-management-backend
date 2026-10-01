@@ -22,7 +22,6 @@ export const createSuperAdmin = async () => {
         await prisma.$transaction(async (tx) => {
             const user = await tx.user.create({
                 data: {
-                    name: "Admin",
                     email: config.superAdmin.email!,
                     password: hashedPassword,
                     role: UserRole.ADMIN,

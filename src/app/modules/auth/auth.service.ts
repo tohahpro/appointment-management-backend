@@ -61,8 +61,10 @@ const getMe = async (session: any) => {
             email: true,
             role: true,
             status: true,
+            authtype: true,
             createdAt: true,
             updatedAt: true,
+
             admin: {
                 select: {
                     id: true,
@@ -72,11 +74,10 @@ const getMe = async (session: any) => {
                     address: true,
                     contactNumber: true,
                     isDeleted: true,
-                    createdAt: true,
-                    updatedAt: true,
                 }
             },
-            moderator: {
+
+            doctor: {
                 select: {
                     id: true,
                     name: true,
@@ -84,22 +85,34 @@ const getMe = async (session: any) => {
                     profilePhoto: true,
                     contactNumber: true,
                     address: true,
+                    registrationNumber: true,
+                    experience: true,
+                    gender: true,
+                    appointmentFee: true,
+                    qualification: true,
+                    currentWorkingPlace: true,
+                    designation: true,
+                    averageRating: true,
                     isDeleted: true,
-                    createdAt: true,
-                    updatedAt: true
+
+
+                    doctorSpecialties: {
+                        include: {
+                            specialities: true
+                        }
+                    }
                 }
             },
-            donar: {
+
+            patient: {
                 select: {
                     id: true,
                     name: true,
                     email: true,
                     profilePhoto: true,
-                    contactNumber: true,
                     address: true,
+                    contactNumber: true,
                     isDeleted: true,
-                    createdAt: true,
-                    updatedAt: true
                 }
             }
         }
