@@ -38,7 +38,7 @@ model Doctor {
     profilePhoto        String?
     contactNumber       String
     address             String
-    registrationNumber  String
+    registrationNumber  String   @unique
     experience          Int      @default(0)
     gender              Gender
     appointmentFee      Int
@@ -53,6 +53,7 @@ model Doctor {
     user User @relation(fields: [email], references: [email])
 
     doctorSpecialties DoctorSpecialties[]
+    doctorSchedules   DoctorSchedules[]
 
     @@map("doctors")
 }

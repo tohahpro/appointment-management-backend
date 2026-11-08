@@ -4,10 +4,8 @@ import { patientSearchableFields } from './patient.constant';
 import { IPatientFilterRequest, IPatientUpdate } from './patient.interface';
 import { prisma } from '../../shared/prisma';
 
-const getAllFromDB = async (
-    filters: IPatientFilterRequest,
-    options: IOptions,
-) => {
+const getAllFromDB = async (filters: IPatientFilterRequest, options: IOptions) => {
+
     const { limit, page, skip } = paginationHelper.calculatePagination(options);
     const { searchTerm, ...filterData } = filters;
 
@@ -53,6 +51,7 @@ const getAllFromDB = async (
                     createdAt: 'desc',
                 }
     });
+
     const total = await prisma.patient.count({
         where: whereConditions,
     });

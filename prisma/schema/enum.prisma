@@ -21,3 +21,15 @@ enum AuthType {
     LOCAL
     GOOGLE
 }
+
+enum PaymentStatus {
+    Paid
+    Unpaid
+    Refunded
+}
+
+enum AppointmentStatus {
+    SCHEDULE
+    COMPLETED
+    CANCELLED
+}
