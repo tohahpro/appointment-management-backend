@@ -88,7 +88,8 @@ const getAllDoctors = async (options: IOptions, filters: any) => {
             }
           }
         }
-      }
+      },
+      schedule: true
     }
   })
 
