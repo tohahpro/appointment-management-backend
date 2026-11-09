@@ -248,25 +248,32 @@ const getDoctorById = async (id: string): Promise<Doctor | null> => {
   const result = await prisma.doctor.findUnique({
     where: {
       id,
-      isDeleted: false,
+      isDeleted: false
     },
     include: {
       doctorSpecialties: {
         include: {
-          specialities: true,
-        },
-      },
-      doctorSchedules: {
-        include: {
-          schedule: true
+          specialities: true
         }
       },
-      reviews: true
-    },
+      schedule: {
+        where: {
+          isBooked: false,
+          startDateTime: {
+            gt: new Date()
+          }
+        },
+        orderBy: {
+          startDateTime: "asc"
+        }
+      }
+    }
   });
+
   if (!result) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Doctor not found");
+    throw new ApiError(httpStatus.NOT_FOUND, "Doctor not found!");
   }
+
   return result;
 };
 

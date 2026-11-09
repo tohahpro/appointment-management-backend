@@ -6,8 +6,9 @@ model Schedule {
     createdAt     DateTime @default(now())
     updatedAt     DateTime @updatedAt
 
-    doctorId String
-    doctor   Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+    doctorId     String
+    doctor       Doctor       @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+    appointments Appointment?
 
     @@map("schedules")
 }
