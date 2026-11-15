@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, Schedule } from "@prisma/client";
 import { addHours, addMinutes, format } from "date-fns";
 import { paginationHelper } from "../../helper/paginationHelper";
 import { IAuthUser } from "../../interfaces/common";
@@ -167,6 +167,17 @@ const getMySchedule = async (
     };
 };
 
+const getScheduleById = async (id: string): Promise<Schedule | null> => {
+    const result = await prisma.schedule.findUnique({
+        where: {
+            id,
+        },
+    });
+
+    return result;
+};
+
+
 const deleteFromDB = async (user: IAuthUser, scheduleId: string) => {
     const doctorData = await prisma.doctor.findUniqueOrThrow({
         where: {
@@ -207,6 +218,7 @@ const deleteFromDB = async (user: IAuthUser, scheduleId: string) => {
 
 export const DoctorScheduleService = {
     createDoctorSchedule,
+    getScheduleById,
     getMySchedule,
     deleteFromDB
 }

@@ -9,6 +9,7 @@ const router = express.Router();
 
 router.post("/", auth(UserRole.DOCTOR), validateRequest(DoctorScheduleValidation.createDoctorScheduleValidation), DoctorScheduleController.createDoctorSchedule)
 router.get('/my-schedule', auth(UserRole.DOCTOR), DoctorScheduleController.getMySchedule);
+router.get('/:id', auth(UserRole.DOCTOR, UserRole.ADMIN, UserRole.PATIENT), DoctorScheduleController.getScheduleById);
 router.delete('/:id', auth(UserRole.DOCTOR), DoctorScheduleController.deleteFromDB);
 
 
