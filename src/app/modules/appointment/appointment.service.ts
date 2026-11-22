@@ -10,112 +10,106 @@ import { IAuthUser } from '../../interfaces/common';
 
 
 
-const createAppointment = async (user: IJWTPayload, payload: { doctorId: string; scheduleId: string; }) => {
-
-    const { doctorId, scheduleId } = payload;
-
-    // 1. Check patient
+const createAppointment = async (user: IJWTPayload, payload: { doctorId: string, scheduleId: string }) => {
+    // Check if patient exists
     const patientData = await prisma.patient.findUnique({
         where: {
             email: user.email,
-            isDeleted: false
-        }
+        },
     });
-
     if (!patientData) {
-        throw new Error("PATIENT not found");
+        throw new Error("Patient not found");
     }
 
-    // 2. Check doctor
+    // Check if doctor exists
     const doctorData = await prisma.doctor.findUnique({
         where: {
-            id: doctorId,
+            id: payload.doctorId,
             isDeleted: false
-        }
+        },
     });
-
     if (!doctorData) {
         throw new Error("Doctor not found");
     }
 
-    // 3. Check schedule
-    const scheduleData = await prisma.schedule.findUnique({
+    // Check if schedule exists
+    const isBookedOrNot = await prisma.schedule.findFirstOrThrow({
         where: {
-            id: scheduleId
-        }
+            doctorId: payload.doctorId,
+            id: payload.scheduleId,
+            isBooked: false,
+        },
     });
-
-    if (!scheduleData) {
-        throw new Error("Schedule not found");
-    }
-
-    // 4. Validate schedule ownership
-    if (scheduleData.doctorId !== doctorId) {
-        throw new Error("This schedule does not belong to the selected doctor");
-    }
-
-    // 5. Check booking status
-    if (scheduleData.isBooked) {
+    if (isBookedOrNot.isBooked === true) {
         throw new Error("Schedule is already booked");
     }
 
-    // 6. Validate schedule time
-    if (scheduleData.startDateTime <= new Date()) {
-        throw new Error("Cannot book a past schedule");
-    }
+    // Create video call link
+    const videoCallLink = uuidv4();
 
-    // 7. Generate video calling ID
-    const videoCallingID = uuidv4();
+    const result = await prisma.$transaction(async (tnx) => {
+        const appointmentData = await tnx.appointment.create({
+            data: {
+                patientId: patientData.id,
+                doctorId: doctorData.id,
+                scheduleId: payload.scheduleId,
+                videoCallingID: videoCallLink
+            }
+        })
 
-
-    // 8. Create appointment using transaction
-    const result = await prisma.$transaction(async (tx) => {
-
-        // Reserve schedule atomically
-        const reservedSchedule = await tx.schedule.updateMany({
+        await tnx.schedule.update({
             where: {
-                id: scheduleId,
-                doctorId,
-                isBooked: false,
-                startDateTime: {
-                    gt: new Date()
-                }
+                id: payload.scheduleId
             },
             data: {
                 isBooked: true
             }
-        });
-
-        if (reservedSchedule.count !== 1) {
-            throw new Error("Schedule is already booked or unavailable");
-        }
-
-        // Create appointment
-        const appointmentData = await tx.appointment.create({
-            data: {
-                patientId: patientData.id,
-                doctorId: doctorData.id,
-                scheduleId,
-                videoCallingID
-            }
-        });
-
-        // Create payment
-        const paymentData = await tx.payment.create({
+        })
+        const transactionId = uuidv4();
+        // for strip payment
+        const paymentData = await tnx.payment.create({
             data: {
                 appointmentId: appointmentData.id,
                 amount: doctorData.appointmentFee,
+                transactionId: transactionId,
+
             }
+        })
+
+
+        // strip payment integration will be here
+        const session = await stripe.checkout.sessions.create({
+            payment_method_types: ["card"],
+            mode: "payment",
+            customer_email: user.email,
+            line_items: [
+                {
+                    price_data: {
+                        currency: "bdt",
+                        product_data: {
+                            name: `Appointment with ${doctorData.name}`,
+                        },
+                        unit_amount: doctorData.appointmentFee * 100,
+                    },
+                    quantity: 1,
+                },
+            ],
+            metadata: {
+                appointmentId: appointmentData.id,
+                paymentId: paymentData.id
+            },
+            success_url: `http://localhost:3000/payment/success`,
+            cancel_url: `http://localhost:3000/payment-failed`,
         });
 
-        return {
-            appointmentData,
-            paymentData
-        };
-    });
+        return { paymentUrl: session.url };
+
+    })
+
 
     return result;
-};
+
+}
 
 const getMyAppointments = async (user: IJWTPayload, filters: any, options: any) => {
 
@@ -292,7 +286,7 @@ const updateAppointmentStatus = async (user: IJWTPayload, appointmentId: string,
 
 const cancelUnpaidAppointments = async () => {
 
-    const twentyMinutesAgo = new Date(Date.now() - 20 * 60 * 1000);
+    const twentyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
 
     const result = await prisma.$transaction(async (tx) => {
 
@@ -363,74 +357,62 @@ const cancelUnpaidAppointments = async () => {
 };
 
 
-const initiatePaymentForAppointment = async (
-    appointmentId: string,
-    user: IAuthUser
-) => {
+const initiatePaymentForAppointment = async (appointmentId: string, user: IAuthUser) => {
     const patientData = await prisma.patient.findUniqueOrThrow({
         where: {
             email: user?.email
         }
     });
 
-    const appointment = await prisma.appointment.findFirst({
+    const appointment = await prisma.appointment.findUnique({
         where: {
             id: appointmentId,
             patientId: patientData.id
         },
         include: {
-            payment: true
+            payment: true,
+            doctor: true
         }
     });
 
     if (!appointment) {
-        throw new ApiError(httpStatus.NOT_FOUND, "Appointment not found or unauthorized");
+        throw new ApiError(httpStatus.BAD_REQUEST, "Appointment not found or unauthorized");
+    }
+
+    if (appointment.paymentStatus !== PaymentStatus.Unpaid) {
+        throw new ApiError(httpStatus.BAD_REQUEST, "Payment already completed for this appointment");
     }
 
     if (appointment.status === AppointmentStatus.CANCELLED) {
-        throw new ApiError(httpStatus.BAD_REQUEST, "Cannot pay for a cancelled appointment");
+        throw new ApiError(httpStatus.BAD_REQUEST, "Cannot pay for cancelled appointment");
     }
 
-    if (!appointment.payment) {
-        throw new ApiError(httpStatus.NOT_FOUND, "Payment record not found");
-    }
-
-    if (
-        appointment.paymentStatus !== PaymentStatus.Unpaid ||
-        appointment.payment.status !== PaymentStatus.Unpaid
-    ) {
-        throw new ApiError(httpStatus.BAD_REQUEST, "Payment already completed");
-    }
-
-    const result = await prisma.$transaction(async (tx) => {
-        const updatedPayment = await tx.payment.updateMany({
-            where: {
-                id: appointment.payment!.id,
-                status: PaymentStatus.Unpaid
+    // Create Stripe checkout session
+    const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        mode: "payment",
+        customer_email: user?.email || '',
+        line_items: [
+            {
+                price_data: {
+                    currency: "bdt",
+                    product_data: {
+                        name: `Appointment with ${appointment.doctor.name}`,
+                    },
+                    unit_amount: appointment.payment!.amount * 100,
+                },
+                quantity: 1,
             },
-            data: {
-                status: PaymentStatus.Paid
-            }
-        });
-
-        if (updatedPayment.count !== 1) {
-            throw new ApiError(httpStatus.CONFLICT, "Payment already processed");
-        }
-
-        return await tx.appointment.update({
-            where: {
-                id: appointmentId
-            },
-            data: {
-                paymentStatus: PaymentStatus.Paid
-            },
-            include: {
-                payment: true
-            }
-        });
+        ],
+        metadata: {
+            appointmentId: appointment.id,
+            paymentId: appointment.payment!.id
+        },
+        success_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/my-appointments`,
+        cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/my-appointments`,
     });
 
-    return result;
+    return { paymentUrl: session.url };
 };
 
 export const AppointmentService = {
